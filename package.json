@@ -1,7 +1,8 @@
 {
-  "name": "@local/dsh-session-tabs",
+  "name": "dsh-plugin-tabs",
   "version": "0.1.0",
-  "private": true,
+  "description": "Session tabs for DeepSeek Harness with tab switching, drag sorting, scrolling, and batch closing.",
+  "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "tabs", "session-tabs"],
   "type": "module",
   "scripts": { "test": "node --test" },
   "exports": {
@@ -10,7 +11,7 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg"],
+  "files": ["index.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "assets/screenshot.png"],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": {
