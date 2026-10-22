@@ -12,6 +12,7 @@ function mount({ fail = false } = {}) {
     tabs: ['a', 'b', 'c'].map(sessionId => ({ sessionId, title: sessionId })), active: 'b',
   });
   let visibleSession = 'b';
+  let newSessions = 0;
   const React = {
     Component: class {},
     createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
@@ -22,6 +23,7 @@ function mount({ fail = false } = {}) {
   };
   const ctx = {
     uiWorkspace: {
+      startSession() { newSessions++; visibleSession = undefined; },
       openSession(target) {
         // Normal sessions use strings; objects belong to subagent navigation.
         assert.equal(typeof target, 'string');
@@ -58,6 +60,9 @@ function mount({ fail = false } = {}) {
   }
   return {
     tabs: nodes(tree, 'dst-tab'), opened, panels, errors,
+    actions: Object.fromEntries(nodes(tree, 'dst-menu-item').map((node) => [node.props['data-action'], node.props])),
+    ids: () => JSON.parse(stored).tabs.map(tab => tab.sessionId),
+    newSessions: () => newSessions,
     active: () => JSON.parse(stored).active,
     visible: () => visibleSession,
     key: key => events.keydown({ key, ctrlKey: true, preventDefault() {} }),
@@ -97,4 +102,43 @@ test('failed navigation keeps the previous tab active', () => {
   assert.equal(app.active(), 'b');
   assert.equal(app.visible(), 'b');
   assert.equal(app.errors.length, 1);
+});
+
+for (const [action, expected] of [
+  ['close-others', ['b']], ['close-left', ['b', 'c']], ['close-right', ['a', 'b']],
+]) {
+  test(`${action} preserves the current session`, () => {
+    const app = mount();
+    app.actions[action].onClick();
+    assert.deepEqual(app.ids(), expected);
+    assert.equal(app.visible(), 'b');
+    assert.equal(app.active(), 'b');
+    assert.deepEqual(app.opened, []);
+    assert.equal(app.newSessions(), 0);
+  });
+}
+
+test('menu closes the current tab and opens its neighbour', () => {
+  const app = mount();
+  app.actions['close-current'].onClick();
+  assert.deepEqual(app.ids(), ['a', 'c']);
+  assert.deepEqual(app.opened, ['c']);
+});
+
+test('close all empties persisted tabs and opens a blank session', () => {
+  const app = mount();
+  app.actions['close-all'].onClick();
+  assert.deepEqual(app.ids(), []);
+  assert.equal(app.active(), undefined);
+  assert.equal(app.visible(), undefined);
+  assert.equal(app.newSessions(), 1);
+});
+
+test('closing the final remaining tab opens a blank session', () => {
+  const app = mount();
+  app.tabs[0].children.at(-1).props.onClick({ stopPropagation() {} });
+  app.tabs[2].children.at(-1).props.onClick({ stopPropagation() {} });
+  app.tabs[1].children.at(-1).props.onClick({ stopPropagation() {} });
+  assert.deepEqual(app.ids(), []);
+  assert.equal(app.newSessions(), 1);
 });

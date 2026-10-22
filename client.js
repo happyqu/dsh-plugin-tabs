@@ -14,19 +14,34 @@ window.__ModuleLoader__.load({
         'tabs-aria': 'Session tabs',
         'new-tab': 'New tab (opens a fresh session)',
         'close-tab': 'Close tab',
+        'scroll-left': 'Scroll tabs left',
+        'scroll-right': 'Scroll tabs right',
+        'tab-actions': 'Tab actions',
+        'close-current': 'Close current tab',
+        'close-others': 'Close other tabs',
+        'close-left': 'Close tabs to the left',
+        'close-right': 'Close tabs to the right',
+        'close-all': 'Close all tabs',
         untitled: 'New Session',
       },
       zh: {
         'tabs-aria': '会话标签',
         'new-tab': '新建标签（开启新会话）',
         'close-tab': '关闭标签',
+        'scroll-left': '向左滚动标签',
+        'scroll-right': '向右滚动标签',
+        'tab-actions': '标签操作',
+        'close-current': '关闭当前标签',
+        'close-others': '关闭其他标签',
+        'close-left': '关闭左侧标签',
+        'close-right': '关闭右侧标签',
+        'close-all': '关闭全部标签',
         untitled: '新会话',
       },
     };
 
-    // The strip belongs to the center column, below native window chrome.
-    // Reserve space in that column rather than transforming the app root:
-    // transforms change the containing block of every fixed host control.
+    // Reserve a compact row in the center column, below native window chrome.
+    // Never transform the app or its fixed controls.
     const STRIP_H = 36;
     const CSS = `
       [data-dst-center]{padding-top:${STRIP_H}px;box-sizing:border-box}
@@ -46,7 +61,7 @@ window.__ModuleLoader__.load({
         height:1px;background:var(--dst-border);z-index:-1}
       .dst-root *{box-sizing:border-box}
       .dst-scroll{display:flex;align-items:flex-end;gap:4px;overflow-x:auto;overflow-y:hidden;
-        min-width:0;flex:0 1 auto;height:100%;scrollbar-width:none;overscroll-behavior-x:contain}
+        min-width:0;flex:1 1 auto;height:100%;scrollbar-width:none;overscroll-behavior-x:contain}
       .dst-scroll::-webkit-scrollbar{display:none}
       .dst-tab{position:relative;display:flex;align-items:center;gap:6px;flex:0 0 auto;
         min-width:104px;max-width:216px;height:32px;padding:0 8px 0 10px;
@@ -81,6 +96,21 @@ window.__ModuleLoader__.load({
       .dst-tab-icon svg{width:14px;height:14px}
       .dst-tab:focus-visible,.dst-root button:focus-visible{outline:2px solid var(--dst-primary);outline-offset:-4px}
       .dst-root[data-dst-shadow]{display:none!important}
+      .dst-tools{display:flex;align-items:center;gap:2px;flex:none;height:32px}
+      .dst-root .dst-tool{width:26px;height:26px;border-radius:4px}
+      .dst-root .dst-tool:hover:not(:disabled){color:var(--dst-text);
+        background:color-mix(in srgb,var(--dst-text) 7%,transparent)}
+      .dst-root button:disabled{opacity:.3;cursor:default}
+      .dst-menu-wrap{position:relative}
+      .dst-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:168px;
+        padding:4px;border:1px solid var(--dst-border);border-radius:6px;
+        background:var(--dst-surface);box-shadow:0 6px 20px #0002}
+      .dst-menu[hidden]{display:none}
+      .dst-root .dst-menu-item{display:flex;width:100%;justify-content:flex-start;height:30px;
+        padding:0 10px;border-radius:3px;font:inherit;color:var(--dst-text);white-space:nowrap}
+      .dst-root .dst-menu-item:hover:not(:disabled),.dst-root .dst-menu-item:focus-visible{
+        background:color-mix(in srgb,var(--dst-text) 7%,transparent)}
+      .dst-menu-separator{height:1px;margin:4px;background:var(--dst-border)}
       @media(max-width:720px){.dst-tab{min-width:96px;max-width:180px;padding-left:8px}
         .dst-root{padding-left:8px;padding-right:8px;gap:6px}}
       @media(prefers-reduced-motion:reduce){.dst-tab,.dst-root button{transition:none}}
@@ -91,6 +121,9 @@ window.__ModuleLoader__.load({
         strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
         h('path', { d: kind === 'close' ? 'M5 5l6 6M11 5l-6 6'
           : kind === 'session' ? 'M3 2.75h10a.75.75 0 0 1 .75.75v7a.75.75 0 0 1-.75.75H7l-3.5 2.5v-2.5H3a.75.75 0 0 1-.75-.75v-7A.75.75 0 0 1 3 2.75ZM5 6h6M5 8.5h4'
+          : kind === 'left' ? 'M10 4 6 8l4 4'
+          : kind === 'right' ? 'M6 4l4 4-4 4'
+          : kind === 'menu' ? 'M3 7.5h.01M8 7.5h.01M13 7.5h.01'
           : 'M8 3v10M3 8h10' }));
     }
 
@@ -164,18 +197,31 @@ window.__ModuleLoader__.load({
       set({ tabs, active: state.active });
     }
     function closeTab(sessionId) {
-      const idx = find(sessionId);
-      if (idx < 0) return undefined;
-      const tabs = state.tabs.filter((t) => t.sessionId !== sessionId);
+      return closeTabs([sessionId]);
+    }
+    function closeTabs(sessionIds) {
+      const removed = new Set(sessionIds);
+      const idx = find(state.active);
+      const tabs = state.tabs.filter((t) => !removed.has(t.sessionId));
+      if (tabs.length === state.tabs.length) return;
       let active = state.active;
       let navigate;
-      if (active === sessionId) {
-        const next = tabs[idx] || tabs[idx - 1];
+      if (removed.has(active)) {
+        const next = state.tabs.slice(idx + 1).find((tab) => !removed.has(tab.sessionId)) || tabs[tabs.length - 1];
         active = next ? next.sessionId : undefined;
         navigate = active;
       }
       set({ tabs, active });
       return navigate;
+    }
+
+    function afterClose(uiWorkspace, navigate) {
+      if (navigate) goto(uiWorkspace, navigate);
+      else if (!state.tabs.length && uiWorkspace) {
+        pendingNav = undefined;
+        try { uiWorkspace.startSession(); }
+        catch (error) { console.error('startSession failed', error); }
+      }
     }
 
     function goto(uiWorkspace, sessionId) {
@@ -324,6 +370,47 @@ window.__ModuleLoader__.load({
         const dragRef = React.useRef(null);
         const [renaming, setRenaming] = React.useState(null);
         const renameRef = React.useRef(null);
+        const scrollRef = React.useRef(null);
+        const menuRef = React.useRef(null);
+        const menuButtonRef = React.useRef(null);
+        const [menuOpen, setMenuOpen] = React.useState(false);
+        const [scrollEdges, setScrollEdges] = React.useState({ left: false, right: false });
+
+        React.useEffect(() => {
+          const scroller = scrollRef.current;
+          if (!scroller) return;
+          function update() {
+            const left = scroller.scrollLeft > 1;
+            const right = scroller.scrollLeft + scroller.clientWidth < scroller.scrollWidth - 1;
+            setScrollEdges((prev) => prev.left === left && prev.right === right ? prev : { left, right });
+          }
+          const observer = new ResizeObserver(update);
+          observer.observe(scroller);
+          Array.from(scroller.children).forEach((tab) => observer.observe(tab));
+          scroller.addEventListener('scroll', update, { passive: true });
+          update();
+          return () => { observer.disconnect(); scroller.removeEventListener('scroll', update); };
+        }, [s.tabs]);
+
+        React.useEffect(() => {
+          if (!menuOpen) return;
+          menuRef.current?.querySelector('button:not(:disabled)')?.focus();
+          function outside(e) {
+            if (!menuRef.current?.contains(e.target)) setMenuOpen(false);
+          }
+          function escape(e) {
+            if (e.key !== 'Escape') return;
+            e.preventDefault();
+            setMenuOpen(false);
+            menuButtonRef.current?.focus();
+          }
+          document.addEventListener('pointerdown', outside);
+          document.addEventListener('keydown', escape);
+          return () => {
+            document.removeEventListener('pointerdown', outside);
+            document.removeEventListener('keydown', escape);
+          };
+        }, [menuOpen]);
 
         React.useEffect(() => {
           if (renaming && renameRef.current) {
@@ -409,7 +496,7 @@ window.__ModuleLoader__.load({
                 if (!state.active) return;
                 e.preventDefault();
                 const go = closeTab(state.active);
-                if (go) goto(uiWorkspace, go);
+                afterClose(uiWorkspace, go);
               } else if (/^[1-9]$/.test(e.key)) {
                 const tab = tabs[Number(e.key) - 1];
                 if (!tab) return;
@@ -503,16 +590,30 @@ window.__ModuleLoader__.load({
           }
         }
 
+        function scrollTabs(direction) {
+          const scroller = scrollRef.current;
+          if (scroller) scroller.scrollBy({ left: direction * Math.max(100, scroller.clientWidth * .8), behavior: 'auto' });
+        }
+        const activeIndex = s.tabs.findIndex((tab) => tab.sessionId === s.active);
+        const menuItems = [
+          ['close-current', s.tabs.filter((tab) => tab.sessionId === s.active)],
+          ['close-others', activeIndex < 0 ? [] : s.tabs.filter((tab) => tab.sessionId !== s.active)],
+          ['close-left', activeIndex < 0 ? [] : s.tabs.slice(0, activeIndex)],
+          ['close-right', activeIndex < 0 ? [] : s.tabs.slice(activeIndex + 1)],
+          ['close-all', s.tabs],
+        ];
+
         return h(
           'div',
           { className: 'dst-root', role: 'tablist', 'aria-label': t('tabs-aria'), ref: stripRef },
           h('style', null, CSS),
           h(
             'div',
-            { className: 'dst-scroll' },
+            { className: 'dst-scroll', ref: scrollRef },
             s.tabs.map((tab) => {
               const active = tab.sessionId === s.active;
-              const label = tab.title || t('untitled');
+              const fullTitle = tab.title || t('untitled');
+              const label = fullTitle.replace(/\s+[—–-]\s+DeepSeek Harness$/, '').replace(/^https?:\/\/(?:www\.)?/, '');
               return h(
                 'div',
                 {
@@ -521,7 +622,7 @@ window.__ModuleLoader__.load({
                   'data-sid': tab.sessionId,
                   role: 'tab',
                   'aria-selected': active,
-                  title: label,
+                  title: fullTitle,
                   tabIndex: active ? 0 : -1,
                   onKeyDown: (e) => {
                     if (e.target !== e.currentTarget) return;
@@ -541,7 +642,7 @@ window.__ModuleLoader__.load({
                   onAuxClick: (e) => {
                     if (e.button === 1) {
                       const go = closeTab(tab.sessionId);
-                      if (go) goto(uiWorkspace, go);
+                      afterClose(uiWorkspace, go);
                     }
                   },
                   onDoubleClick: () => setRenaming(tab.sessionId),
@@ -573,7 +674,7 @@ window.__ModuleLoader__.load({
                     onClick: (e) => {
                       e.stopPropagation();
                       const go = closeTab(tab.sessionId);
-                      if (go) goto(uiWorkspace, go);
+                      afterClose(uiWorkspace, go);
                     },
                   },
                   icon('close')
@@ -591,7 +692,46 @@ window.__ModuleLoader__.load({
                 onClick: newTab,
               },
               icon('new')
+            ),
+          h('div', { className: 'dst-tools' },
+            h('button', { className: 'dst-tool dst-scroll-left', type: 'button',
+              title: t('scroll-left'), 'aria-label': t('scroll-left'), disabled: !scrollEdges.left,
+              onClick: () => scrollTabs(-1) }, icon('left')),
+            h('button', { className: 'dst-tool dst-scroll-right', type: 'button',
+              title: t('scroll-right'), 'aria-label': t('scroll-right'), disabled: !scrollEdges.right,
+              onClick: () => scrollTabs(1) }, icon('right')),
+            h('div', { className: 'dst-menu-wrap', ref: menuRef,
+              onBlur: (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setMenuOpen(false); } },
+              h('button', { className: 'dst-tool dst-menu-trigger', type: 'button', ref: menuButtonRef,
+                title: t('tab-actions'), 'aria-label': t('tab-actions'), 'aria-haspopup': 'menu', 'aria-expanded': menuOpen,
+                onClick: () => setMenuOpen(!menuOpen),
+                onKeyDown: (e) => { if (e.key === 'ArrowDown') { e.preventDefault(); setMenuOpen(true); } }
+              }, icon('menu')),
+              h('div', { className: 'dst-menu', role: 'menu', 'aria-label': t('tab-actions'), hidden: !menuOpen,
+                onKeyDown: (e) => {
+                  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+                  e.preventDefault();
+                  const items = Array.from(e.currentTarget.querySelectorAll('button:not(:disabled)'));
+                  if (!items.length) return;
+                  const current = items.indexOf(document.activeElement);
+                  const next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1
+                    : (current + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+                  items[next].focus();
+                }
+              }, menuItems.map(([action, tabs]) => h(React.Fragment, { key: action },
+                action === 'close-all' ? h('div', { className: 'dst-menu-separator', role: 'separator' }) : null,
+                h('button', { className: 'dst-menu-item', type: 'button', role: 'menuitem',
+                  disabled: !tabs.length, tabIndex: -1, 'data-action': action,
+                  onClick: () => {
+                    if (!tabs.length) return;
+                    setMenuOpen(false);
+                    afterClose(uiWorkspace, closeTabs(tabs.map((tab) => tab.sessionId)));
+                    menuButtonRef.current?.focus();
+                  }
+                }, t(action))
+              )))
             )
+          )
         );
       };
     }
