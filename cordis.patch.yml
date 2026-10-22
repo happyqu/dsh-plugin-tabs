@@ -1,0 +1,3 @@
+- insert:
+    - id: session-tabs
+      name: '@local/dsh-session-tabs'
