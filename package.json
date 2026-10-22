@@ -1,15 +1,26 @@
 {
   "name": "dsh-plugin-tabs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Session tabs for DeepSeek Harness with tab switching, drag sorting, scrolling, and batch closing.",
-  "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "tabs", "session-tabs"],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "tabs",
+    "session-tabs"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/happyqu/dsh-plugin-tabs.git"
   },
   "homepage": "https://github.com/happyqu/dsh-plugin-tabs#readme",
-  "bugs": { "url": "https://github.com/happyqu/dsh-plugin-tabs/issues" },
-  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
+  "bugs": {
+    "url": "https://github.com/happyqu/dsh-plugin-tabs/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "scripts": {
     "test": "node --test",
@@ -21,13 +32,25 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "assets/screenshot.png"],
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "assets/screenshot.png"
+  ],
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
       "immediately": true,
-      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
     }
   }
 }
