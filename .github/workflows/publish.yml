@@ -1,0 +1,93 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'happyqu/dsh-plugin-tabs'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Prepare release
+        id: release
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          if (pkg.name !== 'dsh-plugin-tabs' || pkg.private) {
+            throw new Error('Expected a publishable dsh-plugin-tabs package.');
+          }
+          const number = '(0|[1-9][0-9]*)';
+          const identifier = '(?:0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)';
+          const semver = new RegExp(`^${number}\\.${number}\\.${number}(?:-${identifier}(?:\\.${identifier})*)?$`);
+          if (typeof pkg.version !== 'string' || !semver.test(pkg.version)) {
+            throw new Error('Expected a semantic version without build metadata.');
+          }
+          const tag = `v${pkg.version}`;
+          if (process.env.GITHUB_REF_NAME !== tag) {
+            throw new Error(`Tag must match package.json version: ${tag}`);
+          }
+          const distTag = pkg.version.includes('-') ? 'next' : 'latest';
+          const response = await fetch(`https://registry.npmjs.org/dsh-plugin-tabs/${pkg.version}`, {
+            signal: AbortSignal.timeout(30000),
+          });
+          if (response.status === 200) {
+            console.log(`${pkg.name}@${pkg.version} is already published; skipping.`);
+            appendFileSync(process.env.GITHUB_OUTPUT, 'publish=false\n');
+          } else {
+            if (response.status !== 404) {
+              throw new Error(`npm registry check failed: HTTP ${response.status}`);
+            }
+            appendFileSync(process.env.GITHUB_OUTPUT,
+              `publish=true\ndist_tag=${distTag}\n`);
+          }
+          NODE
+
+      # This package has no external dependencies or build step.
+      - name: Test
+        if: steps.release.outputs.publish == 'true'
+        run: |
+          node --check client.js
+          node --check index.js
+          npm test
+
+      - name: Check package contents
+        if: steps.release.outputs.publish == 'true'
+        run: npm pack --dry-run
+
+      - name: Publish
+        if: steps.release.outputs.publish == 'true'
+        env:
+          NPM_DIST_TAG: ${{ steps.release.outputs.dist_tag }}
+        run: |
+          if [ "$NPM_DIST_TAG" = 'latest' ]; then
+            npm publish --access public --provenance
+          else
+            npm publish --access public --provenance --tag "$NPM_DIST_TAG"
+          fi

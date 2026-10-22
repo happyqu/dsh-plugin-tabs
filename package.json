@@ -3,8 +3,18 @@
   "version": "0.1.0",
   "description": "Session tabs for DeepSeek Harness with tab switching, drag sorting, scrolling, and batch closing.",
   "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "tabs", "session-tabs"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/happyqu/dsh-plugin-tabs.git"
+  },
+  "homepage": "https://github.com/happyqu/dsh-plugin-tabs#readme",
+  "bugs": { "url": "https://github.com/happyqu/dsh-plugin-tabs/issues" },
+  "publishConfig": { "access": "public", "registry": "https://registry.npmjs.org/" },
   "type": "module",
-  "scripts": { "test": "node --test" },
+  "scripts": {
+    "test": "node --test",
+    "release": "node scripts/release.mjs"
+  },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
