@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-tabs",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Session tabs for DeepSeek Harness with tab switching, drag sorting, scrolling, and batch closing.",
   "keywords": [
     "dsh",
