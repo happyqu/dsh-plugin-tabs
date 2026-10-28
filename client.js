@@ -42,47 +42,43 @@ window.__ModuleLoader__.load({
 
     // Reserve a compact row in the center column, below native window chrome.
     // Never transform the app or its fixed controls.
-    const STRIP_H = 36;
+    const STRIP_H = 40;
     const CSS = `
       [data-dst-center]{padding-top:${STRIP_H}px;box-sizing:border-box}
       .dst-root{--dst-surface:var(--dsw-alias-bg-base,#fff);
         --dst-text:var(--dsw-alias-label-primary,#262626);
         --dst-primary:var(--dst-text);
         --dst-muted:var(--dsw-alias-label-secondary,#8c8c8c);
-        --dst-border:color-mix(in srgb,var(--dst-text) 12%,var(--dst-surface));
+        --dst-raised:var(--dsw-alias-bg-layer-1,#f4f4f5);
+        --dst-border:var(--dsw-alias-border-l1,rgb(0 0 0 / 8%));
+        --dst-faint:color-mix(in srgb,var(--dst-text) 6%,transparent);
         position:absolute;top:var(--dst-top,0px);left:var(--dst-left,0px);
         width:var(--dst-width,100%);height:${STRIP_H}px;box-sizing:border-box;
-        display:flex;align-items:flex-end;gap:6px;padding:4px 0 0;
+        display:flex;align-items:center;gap:6px;padding:0 8px;
         pointer-events:auto;isolation:isolate;-webkit-app-region:no-drag;
-        background:var(--dsw-specific-sidebar-fill,var(--dst-surface));
+        background:var(--dst-surface);
         color:var(--dst-text);font:12px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',
         'PingFang SC','Microsoft YaHei','Helvetica Neue',Arial,sans-serif}
       .dst-root::before{content:'';position:absolute;bottom:0;left:0;right:0;
         height:1px;background:var(--dst-border);z-index:-1}
       .dst-root *{box-sizing:border-box}
-      .dst-scroll{display:flex;align-items:flex-end;gap:0;overflow-x:auto;overflow-y:hidden;
-        min-width:0;flex:1 1 auto;height:100%;scrollbar-width:none;overscroll-behavior-x:contain}
+      .dst-scroll{display:flex;align-items:center;gap:6px;overflow-x:auto;overflow-y:hidden;
+        min-width:0;flex:0 1 auto;height:100%;scrollbar-width:none;overscroll-behavior-x:contain}
       .dst-scroll::-webkit-scrollbar{display:none}
       .dst-tab{position:relative;display:flex;align-items:center;gap:7px;flex:0 0 auto;
-        width:max-content;min-width:96px;max-width:220px;height:32px;padding:0 10px 0 14px;
-        border:0;border-radius:9px 9px 0 0;
+        width:max-content;min-width:96px;max-width:220px;height:28px;padding:0 8px 0 10px;
+        border:1px solid transparent;border-radius:8px;
         cursor:pointer;user-select:none;touch-action:pan-y;
         background:transparent;
         color:var(--dst-muted);font:inherit;
         transition:color .08s,background-color .08s,border-color .08s}
-      .dst-tab::after{content:'';position:absolute;right:0;top:9px;width:1px;height:14px;
-        background:var(--dst-border);pointer-events:none}
-      .dst-tab:last-child::after,.dst-tab:has(+ .dst-active)::after,.dst-tab:hover::after{display:none}
-      .dst-tab:hover{color:var(--dst-primary);
-        background:color-mix(in srgb,var(--dst-text) 5%,transparent)}
-      .dst-tab.dst-active{z-index:1;color:var(--dst-primary);background:var(--dst-surface)}
-      .dst-tab.dst-active::before,.dst-tab.dst-active::after{content:'';display:block;position:absolute;
-        top:auto;bottom:0;width:9px;height:9px;pointer-events:none}
-      .dst-tab.dst-active::before{left:-9px;
-        background:radial-gradient(circle at 0 0,transparent 9px,var(--dst-surface) 9.5px)}
-      .dst-tab.dst-active::after{right:-9px;
-        background:radial-gradient(circle at 100% 0,transparent 9px,var(--dst-surface) 9.5px)}
+      .dst-tab:hover{color:var(--dst-primary);background:var(--dst-faint)}
+      .dst-tab.dst-active,.dst-tab.dst-active:hover{z-index:1;color:var(--dst-primary);
+        background:var(--dst-raised);border-color:var(--dst-border)}
       .dst-tab-icon{display:inline-flex;align-items:center;flex:none;color:inherit;opacity:.75}
+      .dst-dot{flex:none;width:7px;height:7px;border-radius:50%;
+        background:var(--dsw-alias-state-idle-primary,#b4b8bd)}
+      .dst-active .dst-dot{background:var(--dsw-alias-brand-primary,#4d6bfe)}
       .dst-active .dst-tab-icon{opacity:1}
       .dst-label{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
         flex:1;min-width:0;font:inherit}
@@ -93,33 +89,36 @@ window.__ModuleLoader__.load({
       .dst-root button{display:inline-flex;align-items:center;justify-content:center;flex:none;
         border:0;box-shadow:none;background:transparent;color:var(--dst-muted);cursor:pointer;padding:0;
         -webkit-app-region:no-drag;transition:color .08s,background-color .08s,border-color .08s}
-      .dst-root .dst-close{width:18px;height:18px;margin-left:2px;border-radius:50%;opacity:0;pointer-events:none}
+      .dst-root .dst-close{width:18px;height:18px;margin-left:2px;border-radius:4px;opacity:0;pointer-events:none}
       .dst-tab:hover .dst-close,.dst-active .dst-close,.dst-tab:focus-within .dst-close{opacity:.8;pointer-events:auto}
       .dst-root .dst-close:hover{color:var(--dst-text);
-        background:color-mix(in srgb,var(--dst-text) 8%,transparent)}
-      .dst-root .dst-new{width:28px;height:28px;margin-bottom:2px;border:0;border-radius:50%;background:transparent}
+        background:color-mix(in srgb,var(--dst-text) 10%,transparent)}
+      .dst-root .dst-new{width:26px;height:26px;border:0;border-radius:6px;background:transparent}
       .dst-root .dst-new:hover{color:var(--dst-primary);
         background:color-mix(in srgb,var(--dst-text) 8%,transparent)}
       .dst-root svg{display:block;width:14px;height:14px;pointer-events:none}
       .dst-tab-icon svg{width:14px;height:14px}
-      .dst-tab:focus-visible,.dst-root button:focus-visible{outline:2px solid var(--dst-primary);outline-offset:-4px}
+      .dst-tab:focus-visible,.dst-root button:focus-visible{outline:2px solid var(--dst-primary);outline-offset:-3px}
       .dst-root[data-dst-shadow]{display:none!important}
-      .dst-tools{display:flex;align-items:center;gap:2px;flex:none;height:32px}
-      .dst-root .dst-tool{width:26px;height:26px;border-radius:4px}
+      .dst-spacer{flex:1 1 auto;min-width:8px}
+      .dst-tools{display:flex;align-items:center;gap:2px;flex:none;height:26px;
+        padding-left:6px;border-left:1px solid var(--dst-border)}
+      .dst-root .dst-tool{width:26px;height:26px;border-radius:6px}
       .dst-root .dst-tool:hover:not(:disabled){color:var(--dst-text);
         background:color-mix(in srgb,var(--dst-text) 7%,transparent)}
-      .dst-root button:disabled{opacity:.3;cursor:default}
-      .dst-menu-wrap{position:relative;display:flex;align-items:center;height:100%}
-      .dst-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:168px;
-        padding:4px;border:1px solid var(--dst-border);border-radius:6px;
-        background:var(--dst-surface);box-shadow:0 6px 20px #0002}
+      .dst-root button:disabled{opacity:.28;cursor:default}
+      .dst-menu-wrap{position:relative;display:flex;align-items:center}
+      .dst-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:172px;
+        padding:4px;border:1px solid var(--dst-border);border-radius:8px;
+        background:var(--dsw-alias-bg-overlay,var(--dst-raised));box-shadow:0 8px 24px #0003}
       .dst-menu[hidden]{display:none}
       .dst-root .dst-menu-item{display:flex;width:100%;justify-content:flex-start;height:30px;
-        padding:0 10px;border-radius:3px;font:inherit;color:var(--dst-text);white-space:nowrap}
+        padding:0 10px;border-radius:5px;font:inherit;color:var(--dst-text);white-space:nowrap}
       .dst-root .dst-menu-item:hover:not(:disabled),.dst-root .dst-menu-item:focus-visible{
         background:color-mix(in srgb,var(--dst-text) 7%,transparent)}
       .dst-menu-separator{height:1px;margin:4px;background:var(--dst-border)}
-      @media(max-width:720px){.dst-tab{min-width:88px;max-width:180px;padding-left:10px}}
+      @media(max-width:720px){.dst-tab{min-width:84px;max-width:168px;padding-left:8px}
+        .dst-tab-icon{display:none}}
       @media(hover:none){.dst-root .dst-close{opacity:.8;pointer-events:auto}}
       @media(prefers-reduced-motion:reduce){.dst-tab,.dst-root button{transition:none}}
     `;
@@ -432,45 +431,39 @@ window.__ModuleLoader__.load({
           if (!node) return;
           const overlay = node.closest('[data-shell-overlay]');
           const frame = overlay && overlay.parentElement;
+          // The strip owns the top of the center column. The frame class name
+          // is host-internal, so match on its suffix and fall back to the whole
+          // frame instead of hiding the strip when the lookup fails.
           const center = frame && Array.from(frame.children).find((el) =>
             Array.from(el.classList).some((name) => name.endsWith('_centerCol')));
-          if (!center) {
-            node.setAttribute('data-dst-shadow', '');
-            console.error('session-tabs: center column was not found');
-            return;
-          }
-          // Retire the previous generation before installing new layout ownership.
-          const previous = window.__dshSessionTabsLayout;
-          if (previous) previous.dispose();
+          const host = center || frame;
           const root = document.getElementById('root');
-          if (root && root.style.transform === 'translateY(36px)' && root.style.height === 'calc(100vh - 36px)') {
+          if (root && root.style.transform && root.style.height === 'calc(100vh - ' + STRIP_H + 'px)') {
             root.style.removeProperty('transform');
             root.style.removeProperty('height');
           }
+          // Retire a strip left behind by an earlier load of this plugin.
           Array.prototype.forEach.call(document.querySelectorAll('.dst-root'), (n) => {
             if (n !== node) n.setAttribute('data-dst-shadow', '');
           });
-          center.setAttribute('data-dst-center', '');
-          function sync() {
-            node.style.setProperty('--dst-left', center.offsetLeft + 'px');
-            node.style.setProperty('--dst-top', center.offsetTop + 'px');
-            node.style.setProperty('--dst-width', center.offsetWidth + 'px');
+          let sync = () => {};
+          if (host) {
+            host.setAttribute('data-dst-center', '');
+            sync = () => {
+              node.style.setProperty('--dst-left', host.offsetLeft + 'px');
+              node.style.setProperty('--dst-top', host.offsetTop + 'px');
+              node.style.setProperty('--dst-width', host.offsetWidth + 'px');
+            };
+            sync();
           }
-          sync();
           const observer = new ResizeObserver(sync);
-          observer.observe(frame);
-          observer.observe(center);
+          if (frame) observer.observe(frame);
+          if (host) observer.observe(host);
           window.addEventListener('resize', sync);
-          const owner = { dispose() {
+          return () => {
             observer.disconnect();
             window.removeEventListener('resize', sync);
-            center.removeAttribute('data-dst-center');
-          } };
-          window.__dshSessionTabsLayout = owner;
-          return () => {
-            if (window.__dshSessionTabsLayout !== owner) return;
-            owner.dispose();
-            delete window.__dshSessionTabsLayout;
+            if (host) host.removeAttribute('data-dst-center');
           };
         }, []);
 
@@ -552,7 +545,7 @@ window.__ModuleLoader__.load({
             let left = startCenters[0].el.offsetLeft;
             for (const id of order) {
               positions.set(id, left);
-              left += startCenters.find((c) => c.sessionId === id).el.offsetWidth;
+              left += startCenters.find((c) => c.sessionId === id).el.offsetWidth + 6;
             }
             for (const c of startCenters) {
               if (c.sessionId === rec.sessionId) continue;
@@ -670,7 +663,7 @@ window.__ModuleLoader__.load({
                         e.stopPropagation();
                       },
                     })
-                  : [h('span', { key: 'icon', className: 'dst-tab-icon', 'aria-hidden': true }, icon('session')), h('span', { key: 'label', className: 'dst-label' }, label)],
+                  : [h('span', { key: 'dot', className: 'dst-dot', 'aria-hidden': true }), h('span', { key: 'label', className: 'dst-label' }, label)],
                 h(
                   'button',
                   {
@@ -701,6 +694,7 @@ window.__ModuleLoader__.load({
               },
               icon('new')
             ),
+          h('div', { className: 'dst-spacer' }),
           h('div', { className: 'dst-tools' },
             h('button', { className: 'dst-tool dst-scroll-left', type: 'button',
               title: t('scroll-left'), 'aria-label': t('scroll-left'), disabled: !scrollEdges.left,
