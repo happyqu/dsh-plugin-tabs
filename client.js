@@ -79,6 +79,8 @@ window.__ModuleLoader__.load({
       .dst-dot{flex:none;width:7px;height:7px;border-radius:50%;
         background:var(--dsw-alias-state-idle-primary,#b4b8bd)}
       .dst-active .dst-dot{background:var(--dsw-alias-brand-primary,#4d6bfe)}
+      .dst-running .dst-dot{background:var(--dsw-alias-state-success-primary,#12b76a);
+        box-shadow:0 0 0 3px color-mix(in srgb,var(--dsw-alias-state-success-primary,#12b76a) 22%,transparent)}
       .dst-active .dst-tab-icon{opacity:1}
       .dst-label{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
         flex:1;min-width:0;font:inherit}
@@ -267,7 +269,59 @@ window.__ModuleLoader__.load({
       };
     }
 
-    // ---------- title source: plain slot props + one guarded async roster --
+    // ---------- roster: the Client Session list snapshot ----------
+    // `sessions.list` is a plain observable service (no hooks), so reading it
+    // cannot disturb the host's hook order. One row per Session carries the
+    // durable title and the running flag.
+    function makeRoster(ctx) {
+      const cache = new Map(); // id -> { title, running }
+      const listeners = new Set();
+      let source = null;
+      let unsubscribe = null;
+
+      function rowTitle(row) {
+        const value = row && (row.title || row.displayTitle || row.name);
+        return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+      }
+      function absorb(snapshot) {
+        const rows = snapshot && snapshot.byId ? snapshot.byId : null;
+        if (!rows) return;
+        const ids = Array.isArray(snapshot.ids) ? snapshot.ids : Object.keys(rows);
+        for (const id of ids) {
+          const row = rows[id];
+          if (!row) continue;
+          const next = { title: rowTitle(row) || (cache.get(id) || {}).title, running: row.running === true };
+          const prev = cache.get(id);
+          if (!prev || prev.title !== next.title || prev.running !== next.running) cache.set(id, next);
+        }
+        for (const fn of Array.from(listeners)) fn();
+      }
+      function start() {
+        const sessions = ctx.get && ctx.get('sessions');
+        const list = sessions && sessions.list;
+        if (!list || typeof list.getSnapshot !== 'function') return;
+        source = list;
+        try {
+          absorb(list.getSnapshot());
+          if (typeof list.subscribe === 'function') {
+            unsubscribe = list.subscribe(() => {
+              try { absorb(list.getSnapshot()); } catch (e) { console.error('session-tabs roster read failed', e); }
+            });
+          }
+        } catch (e) {
+          console.error('session-tabs roster start failed', e);
+        }
+      }
+      return {
+        start,
+        stop() { if (typeof unsubscribe === 'function') unsubscribe(); unsubscribe = null; },
+        title: (id) => (cache.get(id) || {}).title,
+        running: (id) => (cache.get(id) || {}).running === true,
+        subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+      };
+    }
+
+    // ---------- title source: plain slot props + the roster snapshot -------
     function makeTitles(ctx) {
       const cache = new Map();
       let inflight = null;
@@ -370,7 +424,7 @@ window.__ModuleLoader__.load({
 
     // ---------- tab strip ----------
     function makeStrip(deps) {
-      const { t, uiWorkspace } = deps;
+      const { t, uiWorkspace, roster } = deps;
       return function TabStrip() {
         const s = useStore();
         const stripRef = React.useRef(null);
@@ -382,6 +436,12 @@ window.__ModuleLoader__.load({
         const menuButtonRef = React.useRef(null);
         const [menuOpen, setMenuOpen] = React.useState(false);
         const [scrollEdges, setScrollEdges] = React.useState({ left: false, right: false });
+        // Re-render when the roster publishes a new title or running flag.
+        const [, setRosterTick] = React.useState(0);
+        React.useEffect(() => {
+          if (!roster) return;
+          return roster.subscribe(() => setRosterTick((n) => n + 1));
+        }, []);
 
         React.useEffect(() => {
           const scroller = scrollRef.current;
@@ -438,7 +498,9 @@ window.__ModuleLoader__.load({
             Array.from(el.classList).some((name) => name.endsWith('_centerCol')));
           const host = center || frame;
           const root = document.getElementById('root');
-          if (root && root.style.transform && root.style.height === 'calc(100vh - ' + STRIP_H + 'px)') {
+          // Undo a frame shift left behind by an older load of this plugin; the
+          // strip now owns only the center column's top edge.
+          if (root && /^translateY\(\s*\d+px\s*\)$/.test(root.style.transform || '')) {
             root.style.removeProperty('transform');
             root.style.removeProperty('height');
           }
@@ -613,13 +675,17 @@ window.__ModuleLoader__.load({
             { className: 'dst-scroll', ref: scrollRef },
             s.tabs.map((tab) => {
               const active = tab.sessionId === s.active;
-              const fullTitle = tab.title || t('untitled');
+              // The durable Session title outranks the captured one: it follows
+              // Host-side renames instead of freezing the first seen value.
+              const live = roster && roster.title(tab.sessionId);
+              const fullTitle = live || tab.title || t('untitled');
+              const running = !!(roster && roster.running(tab.sessionId));
               const label = fullTitle.replace(/\s+[—–-]\s+DeepSeek Harness$/, '').replace(/^https?:\/\/(?:www\.)?/, '');
               return h(
                 'div',
                 {
                   key: tab.sessionId,
-                  className: 'dst-tab' + (active ? ' dst-active' : ''),
+                  className: 'dst-tab' + (active ? ' dst-active' : '') + (running ? ' dst-running' : ''),
                   'data-sid': tab.sessionId,
                   role: 'tab',
                   'aria-selected': active,
@@ -744,12 +810,17 @@ window.__ModuleLoader__.load({
         const uiWorkspace = ctx.uiWorkspace;
         const t = ctx.locale.bind(NS);
         const titles = makeTitles(ctx);
+        const roster = makeRoster(ctx);
 
         ctx.effect(() => ctx.locale.register(NS, DICTS), 'session-tabs: locale');
+        ctx.effect(() => {
+          roster.start();
+          return () => roster.stop();
+        }, 'session-tabs: roster');
 
         ctx.effect(() => {
           const registerStrip = () => {
-            const view = guarded(makeStrip({ t, uiWorkspace }));
+            const view = guarded(makeStrip({ t, uiWorkspace, roster }));
             return ctx.slots.register({ name: 'shell.overlay', id: 'session-tabs', order: 5 }, view);
           };
           const strip = ctx.slots.inject('shell.overlay', registerStrip);
